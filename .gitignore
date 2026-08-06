@@ -121,29 +121,19 @@ dmypy.json
 # notebooks
 notebooks/
 
-data/*
-!data/1blm/*
-!data/iamon/lineStrokes(on)/*
+
 #Keep corpus example
-data/lblm/*
-!data/1blm/corpus_example.txt
+
 #
 
 # Datas
-data/iamoff/
-data/iamon/lineStrokes(on)/npz-6/*
-# Keep some examples
-data/iamon/lineStrokes(on)/data/*
-!data/iamon/lineStrokes(on)/data/m05/m05-507/*
-!data/iamon/lineStrokes(on)/data/b04/b04-334/*
-!data/iamon/lineStrokes(on)/data/d06/d06-414/*
+
 
 # corpus
-data/1blm
+
 
 # language model counter pickle
-data/lm/*
-!data/lm/lm_5gramchar_counter_pruned-100.pkl
+
 
 #Models
 
