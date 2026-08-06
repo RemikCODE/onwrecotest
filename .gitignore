@@ -146,10 +146,6 @@ data/lm/*
 !data/lm/lm_5gramchar_counter_pruned-100.pkl
 
 #Models
-models/*/checkpoint/*
-models/iamon/*
-models/iamoff/*
-!models/iamon/ONNET/*
 
 
 # keep readme.md
