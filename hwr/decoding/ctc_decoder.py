@@ -27,7 +27,7 @@ class ICTCDecoder:
     where predictions is list(string) of length = top_n
     """
     @abc.abstractmethod
-    def decode(self, rnn_out, top_n):
+    def decode(self, rnn_out, top_n, input_lengths=None):
         return
 
 
@@ -61,7 +61,9 @@ class TrieBeamSearchDecoder(ICTCDecoder):
             trie = load_trie(PATH.LM_DATA_DIR + trie_switcher[trie])
         self.trie = trie
 
-    def decode(self, rnn_out, top_n):
+    def decode(self, rnn_out, top_n, input_lengths=None):
+        if input_lengths is not None:
+            rnn_out = [mat[:int(length)] for mat, length in zip(rnn_out, input_lengths)]
         return trie_beam_search(rnn_out, self.beam_width, top_n, gamma=self.gamma,
                                 lm=self.lm, lm_order=self.ngram, trie=self.trie)
 
@@ -81,9 +83,9 @@ class BestPathDecoder(ICTCDecoder):
     def __init__(self):
         super().__init__()
 
-    def decode(self, rnn_out, top_n):
+    def decode(self, rnn_out, top_n, input_lengths=None):
         # pred = best_path_tensor(rnn_out)
-        pred = best_path(rnn_out)
+        pred = best_path(rnn_out, input_lengths=input_lengths)
         return list(map(lambda p: [p for _ in range(top_n)], pred))
 
 
@@ -92,21 +94,24 @@ class BeamSearchDecoder(ICTCDecoder):
         super().__init__()
         self.beam_width = beam_width
 
-    def decode(self, rnn_out, top_n):
-        return beam_search_tensor(rnn_out, self.beam_width, top_paths=top_n)
+    def decode(self, rnn_out, top_n, input_lengths=None):
+        return beam_search_tensor(rnn_out, self.beam_width, top_paths=top_n, input_lengths=input_lengths)
 
 
 # Get max p across all labels at each timestep
-def best_path(rnn_out, remove_dup=True):
+def best_path(rnn_out, remove_dup=True, input_lengths=None):
     ret = []
     for i in range(len(rnn_out)):
-        ret.append([np.argmax(row) for row in rnn_out[i]])
+        length = int(input_lengths[i]) if input_lengths is not None else len(rnn_out[i])
+        ret.append([np.argmax(row) for row in rnn_out[i][:length]])
     return label2txt(ret, remove_dup=remove_dup, multiple=True)
 
 
 # Greedy search. Just pick the most probable candidate at each time step.
-def best_path_tensor(rnn_out):
-    result_list, _ = ctc_decode(rnn_out, np.ones(rnn_out.shape[0]) * rnn_out.shape[1])
+def best_path_tensor(rnn_out, input_lengths=None):
+    if input_lengths is None:
+        input_lengths = np.ones(rnn_out.shape[0]) * rnn_out.shape[1]
+    result_list, _ = ctc_decode(rnn_out, input_lengths)
     result_list = K.eval(result_list[0])
     pred = label2txt(result_list, multiple=True)
     return list(pred)
@@ -114,10 +119,13 @@ def best_path_tensor(rnn_out):
 
 # Beam search. Keep track of the best n 'beam' per timestep
 # And calculate the prob of them to find the most probable sequence.
-def beam_search_tensor(rnn_out, beam_width, top_paths=1):
+def beam_search_tensor(rnn_out, beam_width, top_paths=1, input_lengths=None):
     _EPSILON = 1e-7
     num_of_samples = rnn_out.shape[0]
-    input_length = np.ones(num_of_samples) * rnn_out.shape[1]
+    if input_lengths is None:
+        input_length = np.ones(num_of_samples) * rnn_out.shape[1]
+    else:
+        input_length = input_lengths
     input_length = math_ops.to_int32(input_length)
     rnn_out = math_ops.log(array_ops.transpose(rnn_out, perm=[1, 0, 2]) + _EPSILON)
 
@@ -141,5 +149,4 @@ def beam_search_tensor(rnn_out, beam_width, top_paths=1):
             pred[k].append(c[k])
     pred = [list(label2txt(p, multiple=True)) for p in pred]
     return pred
-
 

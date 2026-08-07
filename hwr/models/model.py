@@ -2,6 +2,7 @@ import abc
 import datetime
 import os
 
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import Sequence
@@ -98,13 +99,25 @@ class HWRModel(object):
             decoder = self.decoder
 
         softmaxs = self.predict_softmax(x)
-        pred = decoder.decode(rnn_out=softmaxs, top_n=top)
+        input_lengths = self._get_input_lengths(x, softmaxs)
+        pred = decoder.decode(rnn_out=softmaxs, top_n=top, input_lengths=input_lengths)
         if top == 1:
             try:
                 pred = [p[0] for p in pred]
             except IndexError:
                 print("Index Error: {}".format(pred))
         return pred
+
+    def _get_input_lengths(self, x, softmaxs):
+        if isinstance(x, Sequence) and hasattr(x, "xs") and hasattr(x, "inout_ratio"):
+            ordered_xs = [x.xs[idx] for idx in x.indices] if hasattr(x, "indices") else x.xs
+            lengths = [int(np.ceil(sample.shape[0] / x.inout_ratio)) for sample in ordered_xs]
+            return np.asarray([min(l, sm.shape[0]) for l, sm in zip(lengths, softmaxs)])
+        if isinstance(x, np.ndarray):
+            lengths = np.any(x != 0, axis=-1).sum(axis=1)
+            lengths = np.asarray(lengths)
+            return np.asarray([min(int(l), softmaxs.shape[1]) for l in lengths])
+        return None
 
     def evaluate(self, eval_seq, metrics=None, decoder=None):
         if metrics is None:
@@ -145,6 +158,4 @@ class HWRModel(object):
 # get timestamp
 def get_time():
     return datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-
-
 
