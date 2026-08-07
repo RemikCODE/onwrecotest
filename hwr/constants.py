@@ -1,10 +1,34 @@
 import os
 
 
+def _to_abs_dir(path):
+    return os.path.abspath(path) + "/"
+
+
+def _pick_existing_dir(candidates, default):
+    for candidate in candidates:
+        if not candidate:
+            continue
+        candidate_dir = _to_abs_dir(candidate)
+        if os.path.isdir(candidate_dir):
+            return candidate_dir
+    return _to_abs_dir(default)
+
+
 class PATH:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__)) + "/"
-    DATA_DIR = BASE_DIR + "../data/iamon/"
-    MODEL_DIR = BASE_DIR + "../models/iamon/"
+    BASE_DIR = _to_abs_dir(os.path.dirname(os.path.abspath(__file__)))
+    DATA_DIR = _pick_existing_dir([
+        os.getenv("HWR_DATA_DIR"),
+        BASE_DIR + "../data/iamon/",
+        BASE_DIR + "../data/iamondb/",
+        BASE_DIR + "../data/IAMonDB/",
+    ], BASE_DIR + "../data/iamon/")
+    MODEL_DIR = _pick_existing_dir([
+        os.getenv("HWR_MODEL_DIR"),
+        BASE_DIR + "../models/iamon/",
+        BASE_DIR + "../models/iamondb/",
+        BASE_DIR + "../models/IAMonDB/",
+    ], BASE_DIR + "../models/iamon/")
     SPLIT_CONFIG_DIR = DATA_DIR + "split-config/"
     LINE_DATA_DIR = DATA_DIR + "lineStrokes(on)/"
     CKPT_DIR = MODEL_DIR + "checkpoint/"
