@@ -71,7 +71,7 @@ class HWRModel(object):
                                                          verbose=1)
         es_callback = tf.keras.callbacks.EarlyStopping(patience=earlystop)
         self.model.fit(
-            generator=train_seq,
+            x=train_seq,
             validation_data=test_seq,
             shuffle=True,
             verbose=1,
@@ -158,4 +158,3 @@ class HWRModel(object):
 # get timestamp
 def get_time():
     return datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-

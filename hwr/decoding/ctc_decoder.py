@@ -3,10 +3,9 @@ import abc
 import dill as pickle
 import numpy as np
 from nltk.lm import Vocabulary
+import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.backend import ctc_decode
-from tensorflow.python.ops import ctc_ops as ctc
-from tensorflow.python.ops import sparse_ops, math_ops, array_ops
 
 from hwr.constants import DATA, PATH
 from hwr.decoding.mlf import label2txt
@@ -112,7 +111,7 @@ def best_path_tensor(rnn_out, input_lengths=None):
     if input_lengths is None:
         input_lengths = np.ones(rnn_out.shape[0]) * rnn_out.shape[1]
     result_list, _ = ctc_decode(rnn_out, input_lengths)
-    result_list = K.eval(result_list[0])
+    result_list = result_list[0].numpy()
     pred = label2txt(result_list, multiple=True)
     return list(pred)
 
@@ -126,10 +125,10 @@ def beam_search_tensor(rnn_out, beam_width, top_paths=1, input_lengths=None):
         input_length = np.ones(num_of_samples) * rnn_out.shape[1]
     else:
         input_length = input_lengths
-    input_length = math_ops.to_int32(input_length)
-    rnn_out = math_ops.log(array_ops.transpose(rnn_out, perm=[1, 0, 2]) + _EPSILON)
+    input_length = tf.convert_to_tensor(input_length, dtype=tf.int32)
+    rnn_out = tf.math.log(tf.transpose(rnn_out, perm=[1, 0, 2]) + _EPSILON)
 
-    decoded, log_prob = ctc.ctc_beam_search_decoder(
+    decoded, _ = tf.compat.v1.nn.ctc_beam_search_decoder(
         inputs=rnn_out,
         sequence_length=input_length,
         beam_width=beam_width,
@@ -137,11 +136,10 @@ def beam_search_tensor(rnn_out, beam_width, top_paths=1, input_lengths=None):
         merge_repeated=False)
 
     decoded_dense = [
-        sparse_ops.sparse_to_dense(
-            st.indices, st.dense_shape, st.values, default_value=-1)
+        tf.sparse.to_dense(st, default_value=-1)
         for st in decoded
     ]
-    candidates = [K.eval(i) for i in decoded_dense]
+    candidates = [i.numpy() for i in decoded_dense]
 
     pred = [[] for _ in range(num_of_samples)]
     for k in range(num_of_samples):
@@ -149,4 +147,3 @@ def beam_search_tensor(rnn_out, beam_width, top_paths=1, input_lengths=None):
             pred[k].append(c[k])
     pred = [list(label2txt(p, multiple=True)) for p in pred]
     return pred
-

@@ -58,7 +58,7 @@ class Sample(object):
                     y = point.attrib['y']
                     strokes.append([stroke_id, t, x, y])
                 stroke_id += 1
-            strokes = np.asarray(strokes, dtype=np.int)
+            strokes = np.asarray(strokes, dtype=int)
 
             # Find the four edges of whiteboard in coordinate space
             r, b = do  # right, bottom edge
